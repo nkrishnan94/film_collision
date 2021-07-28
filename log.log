@@ -1,41 +1,80 @@
 units       lj
-atom_style  dipole
+atom_style  hybrid ellipsoid full sphere
+WARNING: Atom_style hybrid defines both pertype and peratom masses - both must be set, only peratom masses will be used (../atom_vec_hybrid.cpp:157)
+WARNING: Peratom rmass is in multiple sub-styles - must be used consistently (../atom_vec_hybrid.cpp:219)
 dimension   3
 boundary    p p p
 timestep    0.01
 #------------------------------------------------------------------------------#
 #-------------------------- Atomic Setup --------------------------------------#
-region film block 0 40 0 4 0 16
-region film2 block 0 70 0 80 0 80
-create_box 2 film2
+
+
+region 1 block 20 50 20 30 20 30 ##region for B subtlis
+region 2 block 20 50 40 50 20 30 #3 region for ecoli
+
+###setup simulation box
+region box block 0 70 0 80 0 80
+create_box 2 box
 Created orthogonal box = (0.0000000 0.0000000 0.0000000) to (70.000000 80.000000 80.000000)
   1 by 1 by 1 MPI processor grid
-create_atoms 1 random 2540 2 film
+
+## two types for Kob-Andersen material for B subtilis
+create_atoms 1 random 2540 1 1
+Created 2540 atoms
+  create_atoms CPU = 0.003 seconds
+create_atoms 2 random 2540 2 1
 Created 2540 atoms
   create_atoms CPU = 0.001 seconds
-create_atoms 2 random 2540 10002 film
-Created 2540 atoms
-  create_atoms CPU = 0.000 seconds
+
+
+##set mass shape and quaternion for B subtilis
 mass 1 1
 mass 2 1
-set atom * charge 10
+set atom * shape .5 .5 1
 Setting atom values ...
-  5080 settings made for charge
-neigh_modify every 1 delay 0 check yes
-#pair_style lj/cut/dipole/cut 2.5
+  5080 settings made for shape
+set atom * quat 0 0 1 90
+Setting atom values ...
+  5080 settings made for quat
+
+
+
+### Set pair potential for Bsub
+#pair_style lj/cut 2.5
 #pair_coeff 1 1 1 1 1.5
 #pair_coeff 1 2 1.5 .8 2
 #pair_coeff 2 2 0.5 .88 2.2
-minimize 1.0e-4 1.0e-6 1000 1000
+
+
+# one type for E coli
+create_atoms 1 random 5080 3 2
+Created 5080 atoms
+  create_atoms CPU = 0.001 seconds
+
+## group atoms
+group bsub region 1
+5080 atoms in group bsub
+group ecoli region 2
+5080 atoms in group ecoli
+
+neigh_modify every 1 delay 0 check yes
+
+
+
+#-------------------------------- Outputs -------------------------------------#
+thermo 1000
+dump 3 all xyz 500 traj.xyz
+thermo_style custom step temp press density lx ly lz
+minimize 1.0e-4 1.0e-6 10000 10000
 WARNING: No pairwise cutoff or binsize set. Atom sorting therefore disabled. (../atom.cpp:2115)
 WARNING: Communication cutoff is 0.0. No ghost atoms will be generated. Atoms may get lost. (../comm_brick.cpp:167)
-Per MPI rank memory allocation (min/avg/max) = 4.172 | 4.172 | 4.172 Mbytes
-Step Temp E_pair E_mol TotEng Press 
-       0            0            0            0            0            0 
-       1            0            0            0            0            0 
-Loop time of 0.000138998 on 1 procs for 1 steps with 5080 atoms
+Per MPI rank memory allocation (min/avg/max) = 10.64 | 10.64 | 10.64 Mbytes
+Step Temp Press Density Lx Ly Lz 
+       0            0            0  0.011874472           70           80           80 
+       1            0            0  0.011874472           70           80           80 
+Loop time of 0.00763202 on 1 procs for 1 steps with 10160 atoms
 
-92.1% CPU use with 1 MPI tasks x no OpenMP threads
+81.4% CPU use with 1 MPI tasks x no OpenMP threads
 
 Minimization stats:
   Stopping criterion = search direction is not downhill
@@ -50,13 +89,14 @@ MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
 Pair    | 0          | 0          | 0          |   0.0 |  0.00
+Bond    | 0          | 0          | 0          |   0.0 |  0.00
 Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 7.1526e-06 | 7.1526e-06 | 7.1526e-06 |   0.0 |  5.15
+Comm    | 1.2875e-05 | 1.2875e-05 | 1.2875e-05 |   0.0 |  0.17
 Output  | 0          | 0          | 0          |   0.0 |  0.00
 Modify  | 0          | 0          | 0          |   0.0 |  0.00
-Other   |            | 0.0001318  |            |       | 94.85
+Other   |            | 0.007619   |            |       | 99.83
 
-Nlocal:        5080.00 ave        5080 max        5080 min
+Nlocal:        10160.0 ave       10160 max       10160 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 Nghost:        0.00000 ave           0 max           0 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
@@ -65,29 +105,23 @@ Histogram: 1 0 0 0 0 0 0 0 0 0
 
 Total # of neighbors = 0
 Ave neighs/atom = 0.0000000
+Ave special neighs/atom = 0.0000000
 Neighbor list builds = 0
 Dangerous builds = 0
-
-#-------------------------------- Outputs -------------------------------------#
-thermo 5000
-dump 3 all xyz 1000 traj.xyz
-thermo_style custom step temp press density lx ly lz
-
 
 
 #------------------------------------------------------------------------------#
 #------------------------- Running the Simulation -----------------------------#
-
 #fix 1 all nve/limit 0.1
 #fix 2 all langevin 2.0 2.0 0.5 1530917 zero yes
 #velocity all create 2.0 4928351 mom yes rot yes dist gaussian
-#run 10000
+#run 1000
 #unfix 1
 #unfix 2
 
-#------------------------------------------------------------------------------#
+#---------------------------Eqiolibration -------------------------#
 #fix 10 all nvt temp 3 0.03 $(100.0*dt)
-#run 10000
+#run 10000s
 #unfix 10
 #change_box all y final -40 40
 #fix 20 all npt temp 0.03 0.03 $(100.0*dt) z 0 0 $(100.0*dt) x 0 0 $(100.0*dt)
@@ -97,41 +131,52 @@ thermo_style custom step temp press density lx ly lz
 #run 10000
 #unfix 40
 
-#fix 50 all propel/self dipole 40.0
-#run 5000
-fix 10 all efield 0.0 0.0 1.0
-run 50000
-WARNING: Communication cutoff is 0.0. No ghost atoms will be generated. Atoms may get lost. (../comm_brick.cpp:167)
-Per MPI rank memory allocation (min/avg/max) = 3.047 | 3.047 | 3.047 Mbytes
-Step Temp Press Density Lx Ly Lz 
-       1            0            0  0.011339286           70           80           80 
-    5000            0            0  0.011339286           70           80           80 
-   10000            0            0  0.011339286           70           80           80 
-   15000            0            0  0.011339286           70           80           80 
-   20000            0            0  0.011339286           70           80           80 
-   25000            0            0  0.011339286           70           80           80 
-   30000            0            0  0.011339286           70           80           80 
-   35000            0            0  0.011339286           70           80           80 
-   40000            0            0  0.011339286           70           80           80 
-   45000            0            0  0.011339286           70           80           80 
-   50000            0            0  0.011339286           70           80           80 
-   50001            0            0  0.011339286           70           80           80 
-Loop time of 4.18764 on 1 procs for 50000 steps with 5080 atoms
 
-Performance: 10316065.499 tau/day, 11939.891 timesteps/s
-97.4% CPU use with 1 MPI tasks x no OpenMP threads
+#--------------------------- Simulate swarming -------------------------#
+fix active bsub propel/self quat 5
+run 20000
+WARNING: Communication cutoff is 0.0. No ghost atoms will be generated. Atoms may get lost. (../comm_brick.cpp:167)
+Per MPI rank memory allocation (min/avg/max) = 9.520 | 9.520 | 9.520 Mbytes
+Step Temp Press Density Lx Ly Lz 
+       1            0            0  0.011874472           70           80           80 
+    1000            0            0  0.011874472           70           80           80 
+    2000            0            0  0.011874472           70           80           80 
+    3000            0            0  0.011874472           70           80           80 
+    4000            0            0  0.011874472           70           80           80 
+    5000            0            0  0.011874472           70           80           80 
+    6000            0            0  0.011874472           70           80           80 
+    7000            0            0  0.011874472           70           80           80 
+    8000            0            0  0.011874472           70           80           80 
+    9000            0            0  0.011874472           70           80           80 
+   10000            0            0  0.011874472           70           80           80 
+   11000            0            0  0.011874472           70           80           80 
+   12000            0            0  0.011874472           70           80           80 
+   13000            0            0  0.011874472           70           80           80 
+   14000            0            0  0.011874472           70           80           80 
+   15000            0            0  0.011874472           70           80           80 
+   16000            0            0  0.011874472           70           80           80 
+   17000            0            0  0.011874472           70           80           80 
+   18000            0            0  0.011874472           70           80           80 
+   19000            0            0  0.011874472           70           80           80 
+   20000            0            0  0.011874472           70           80           80 
+   20001            0            0  0.011874472           70           80           80 
+Loop time of 2.00306 on 1 procs for 20000 steps with 10160 atoms
+
+Performance: 8626805.687 tau/day, 9984.729 timesteps/s
+94.9% CPU use with 1 MPI tasks x no OpenMP threads
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
 Pair    | 0          | 0          | 0          |   0.0 |  0.00
+Bond    | 0.0021884  | 0.0021884  | 0.0021884  |   0.0 |  0.11
 Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 0.016101   | 0.016101   | 0.016101   |   0.0 |  0.38
-Output  | 0.16239    | 0.16239    | 0.16239    |   0.0 |  3.88
-Modify  | 3.4224     | 3.4224     | 3.4224     |   0.0 | 81.73
-Other   |            | 0.5868     |            |       | 14.01
+Comm    | 0.013927   | 0.013927   | 0.013927   |   0.0 |  0.70
+Output  | 0.23251    | 0.23251    | 0.23251    |   0.0 | 11.61
+Modify  | 1.0109     | 1.0109     | 1.0109     |   0.0 | 50.47
+Other   |            | 0.7435     |            |       | 37.12
 
-Nlocal:        5080.00 ave        5080 max        5080 min
+Nlocal:        10160.0 ave       10160 max       10160 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 Nghost:        0.00000 ave           0 max           0 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
@@ -140,6 +185,9 @@ Histogram: 1 0 0 0 0 0 0 0 0 0
 
 Total # of neighbors = 0
 Ave neighs/atom = 0.0000000
+Ave special neighs/atom = 0.0000000
 Neighbor list builds = 0
 Dangerous builds = 0
-Total wall time: 0:00:04
+
+
+Total wall time: 0:00:02
