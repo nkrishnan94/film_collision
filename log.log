@@ -1,61 +1,60 @@
 units       lj
-atom_style  hybrid ellipsoid full sphere
-WARNING: Atom_style hybrid defines both pertype and peratom masses - both must be set, only peratom masses will be used (../atom_vec_hybrid.cpp:157)
-WARNING: Peratom rmass is in multiple sub-styles - must be used consistently (../atom_vec_hybrid.cpp:219)
+atom_style  atomic
 dimension   3
 boundary    p p p
 timestep    0.01
 #------------------------------------------------------------------------------#
 #-------------------------- Atomic Setup --------------------------------------#
 
+## setup regions for each particle types
+region bsub block 40 50 41 42 16 20 ##region for B subtlis
+region ecoli block 40 50 40 42 20 30 #3 region for ecoli
+#region substrate block 40 50 38 39 20 30 #3 region for substrate
 
-region 1 block 20 50 20 30 20 30 ##region for B subtlis
-region 2 block 20 50 40 50 20 30 #3 region for ecoli
 
 ###setup simulation box
-region box block 0 70 0 80 0 80
+region box block 25 55 30 50 10 40
 create_box 2 box
-Created orthogonal box = (0.0000000 0.0000000 0.0000000) to (70.000000 80.000000 80.000000)
+Created orthogonal box = (25.000000 30.000000 10.000000) to (55.000000 50.000000 40.000000)
   1 by 1 by 1 MPI processor grid
 
-## two types for Kob-Andersen material for B subtilis
-create_atoms 1 random 2540 1 1
-Created 2540 atoms
-  create_atoms CPU = 0.003 seconds
-create_atoms 2 random 2540 2 1
-Created 2540 atoms
-  create_atoms CPU = 0.001 seconds
 
-
-##set mass shape and quaternion for B subtilis
-mass 1 1
-mass 2 1
-set atom * shape .5 .5 1
-Setting atom values ...
-  5080 settings made for shape
-set atom * quat 0 0 1 90
-Setting atom values ...
-  5080 settings made for quat
+## create atoms for B. subtilis
+create_atoms 1 random 600 1 bsub
+Created 600 atoms
+  create_atoms CPU = 0.000 seconds
 
 
 
-### Set pair potential for Bsub
-#pair_style lj/cut 2.5
-#pair_coeff 1 1 1 1 1.5
-#pair_coeff 1 2 1.5 .8 2
-#pair_coeff 2 2 0.5 .88 2.2
+
+#create e coli atoms
+create_atoms 2 random 200 2 ecoli
+Created 200 atoms
+  create_atoms CPU = 0.000 seconds
+mass * 1
 
 
-# one type for E coli
-create_atoms 1 random 5080 3 2
-Created 5080 atoms
-  create_atoms CPU = 0.001 seconds
+### Set pair potential
+pair_style lj/cut 2.5
 
-## group atoms
-group bsub region 1
-5080 atoms in group bsub
-group ecoli region 2
-5080 atoms in group ecoli
+pair_coeff 1 2 1 1 1 # for now only have a nontrivila interaction BETWEEN e coli and b subtillis
+
+#pair_coeff 1 2 0 0 0
+
+pair_coeff 1 1 0 0 0
+
+pair_coeff 2 2 0 0 0
+
+
+
+## group atoms so the that certain fixes can be assigned to certain groups
+group bsub region bsub
+600 atoms in group bsub
+group ecoli region ecoli
+200 atoms in group ecoli
+#group substrate region substrate
+
+
 
 neigh_modify every 1 delay 0 check yes
 
@@ -63,131 +62,133 @@ neigh_modify every 1 delay 0 check yes
 
 #-------------------------------- Outputs -------------------------------------#
 thermo 1000
-dump 3 all xyz 500 traj.xyz
+dump 3 all xyz 1000 traj.xyz
 thermo_style custom step temp press density lx ly lz
-minimize 1.0e-4 1.0e-6 10000 10000
-WARNING: No pairwise cutoff or binsize set. Atom sorting therefore disabled. (../atom.cpp:2115)
-WARNING: Communication cutoff is 0.0. No ghost atoms will be generated. Atoms may get lost. (../comm_brick.cpp:167)
-Per MPI rank memory allocation (min/avg/max) = 10.64 | 10.64 | 10.64 Mbytes
+minimize 1.0e-4 1.0e-6 100 100
+Neighbor list info ...
+  update every 1 steps, delay 0 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 1.3
+  ghost atom cutoff = 1.3
+  binsize = 0.65, bins = 47 31 47
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair lj/cut, perpetual
+      attributes: half, newton on
+      pair build: half/bin/atomonly/newton
+      stencil: half/bin/3d/newton
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 5.629 | 5.629 | 5.629 Mbytes
 Step Temp Press Density Lx Ly Lz 
-       0            0            0  0.011874472           70           80           80 
-       1            0            0  0.011874472           70           80           80 
-Loop time of 0.00763202 on 1 procs for 1 steps with 10160 atoms
+       0            0    7831.0328  0.044444444           30           20           30 
+      10            0   0.05273689  0.044444444           30           20           30 
+Loop time of 0.00319505 on 1 procs for 10 steps with 800 atoms
 
-81.4% CPU use with 1 MPI tasks x no OpenMP threads
+86.8% CPU use with 1 MPI tasks x no OpenMP threads
 
 Minimization stats:
-  Stopping criterion = search direction is not downhill
+  Stopping criterion = quadratic factors are zero
   Energy initial, next-to-last, final = 
-                     0                  0                  0
-  Force two-norm initial, final = 0.0000000 0.0000000
-  Force max component initial, final = 0.0000000 0.0000000
-  Final line search alpha, max atom move = 0.0000000 0.0000000
-  Iterations, force evaluations = 1 0
+      44034.6347316033  0.117829886849491  0.117829886849491
+  Force two-norm initial, final = 2.0828863e+09 821.12836
+  Force max component initial, final = 1.4383801e+09 197.98238
+  Final line search alpha, max atom move = 0.00050509546 0.1
+  Iterations, force evaluations = 10 24
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 0          | 0          | 0          |   0.0 |  0.00
-Bond    | 0          | 0          | 0          |   0.0 |  0.00
-Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 1.2875e-05 | 1.2875e-05 | 1.2875e-05 |   0.0 |  0.17
+Pair    | 0.00026226 | 0.00026226 | 0.00026226 |   0.0 |  8.21
+Neigh   | 0.001425   | 0.001425   | 0.001425   |   0.0 | 44.60
+Comm    | 5.3406e-05 | 5.3406e-05 | 5.3406e-05 |   0.0 |  1.67
 Output  | 0          | 0          | 0          |   0.0 |  0.00
 Modify  | 0          | 0          | 0          |   0.0 |  0.00
-Other   |            | 0.007619   |            |       | 99.83
+Other   |            | 0.001454   |            |       | 45.52
 
-Nlocal:        10160.0 ave       10160 max       10160 min
+Nlocal:        800.000 ave         800 max         800 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 Nghost:        0.00000 ave           0 max           0 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-Neighs:        0.00000 ave           0 max           0 min
+Neighs:        231.000 ave         231 max         231 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 
-Total # of neighbors = 0
-Ave neighs/atom = 0.0000000
-Ave special neighs/atom = 0.0000000
-Neighbor list builds = 0
+Total # of neighbors = 231
+Ave neighs/atom = 0.28875
+Neighbor list builds = 3
 Dangerous builds = 0
 
 
 #------------------------------------------------------------------------------#
 #------------------------- Running the Simulation -----------------------------#
-#fix 1 all nve/limit 0.1
-#fix 2 all langevin 2.0 2.0 0.5 1530917 zero yes
-#velocity all create 2.0 4928351 mom yes rot yes dist gaussian
-#run 1000
-#unfix 1
-#unfix 2
+## integrator, updates position and velocity
+fix 1 all nve/limit 0.01
 
-#---------------------------Eqiolibration -------------------------#
-#fix 10 all nvt temp 3 0.03 $(100.0*dt)
-#run 10000s
-#unfix 10
-#change_box all y final -40 40
-#fix 20 all npt temp 0.03 0.03 $(100.0*dt) z 0 0 $(100.0*dt) x 0 0 $(100.0*dt)
-#run 10000
-#unfix 20
-#fix 40 all nvt temp 0.03 0.03 $(100.0*dt)
-#run 10000
-#unfix 40
+fix 2 all langevin 2.0 2.0 0.5 1530917 zero yes
+velocity all create 2.0 4928351 mom yes rot yes dist gaussian
 
+#fix active bsub propel/self velocity 5.0 ### simulates swarming of b sub.
+fix kick bsub addforce 0.0 0.0 1.0
 
-#--------------------------- Simulate swarming -------------------------#
-fix active bsub propel/self quat 5
+fix 3 ecoli spring/self 5.0
+
+fix 3 bsub spring/self 3.0 y
+WARNING: Replacing a fix, but new group != old group (../modify.cpp:853)
+
 run 20000
-WARNING: Communication cutoff is 0.0. No ghost atoms will be generated. Atoms may get lost. (../comm_brick.cpp:167)
-Per MPI rank memory allocation (min/avg/max) = 9.520 | 9.520 | 9.520 Mbytes
+Per MPI rank memory allocation (min/avg/max) = 4.879 | 4.879 | 4.879 Mbytes
 Step Temp Press Density Lx Ly Lz 
-       1            0            0  0.011874472           70           80           80 
-    1000            0            0  0.011874472           70           80           80 
-    2000            0            0  0.011874472           70           80           80 
-    3000            0            0  0.011874472           70           80           80 
-    4000            0            0  0.011874472           70           80           80 
-    5000            0            0  0.011874472           70           80           80 
-    6000            0            0  0.011874472           70           80           80 
-    7000            0            0  0.011874472           70           80           80 
-    8000            0            0  0.011874472           70           80           80 
-    9000            0            0  0.011874472           70           80           80 
-   10000            0            0  0.011874472           70           80           80 
-   11000            0            0  0.011874472           70           80           80 
-   12000            0            0  0.011874472           70           80           80 
-   13000            0            0  0.011874472           70           80           80 
-   14000            0            0  0.011874472           70           80           80 
-   15000            0            0  0.011874472           70           80           80 
-   16000            0            0  0.011874472           70           80           80 
-   17000            0            0  0.011874472           70           80           80 
-   18000            0            0  0.011874472           70           80           80 
-   19000            0            0  0.011874472           70           80           80 
-   20000            0            0  0.011874472           70           80           80 
-   20001            0            0  0.011874472           70           80           80 
-Loop time of 2.00306 on 1 procs for 20000 steps with 10160 atoms
+      10            2   0.14151467  0.044444444           30           20           30 
+    1000   0.23430212  0.010400411  0.044444444           30           20           30 
+    2000   0.23661809   0.01238098  0.044444444           30           20           30 
+    3000   0.23296556  0.011740801  0.044444444           30           20           30 
+    4000   0.24134833  0.011327932  0.044444444           30           20           30 
+    5000    0.2351935  0.011395561  0.044444444           30           20           30 
+    6000   0.23342368  0.011937419  0.044444444           30           20           30 
+    7000   0.23380706  0.012373083  0.044444444           30           20           30 
+    8000   0.23059006  0.011222149  0.044444444           30           20           30 
+    9000   0.23292985  0.011261515  0.044444444           30           20           30 
+   10000   0.23895042  0.011197076  0.044444444           30           20           30 
+   11000   0.23628026  0.010979609  0.044444444           30           20           30 
+   12000   0.23471844  0.010901763  0.044444444           30           20           30 
+   13000   0.23331972  0.010356803  0.044444444           30           20           30 
+   14000   0.23674054   0.01167356  0.044444444           30           20           30 
+   15000    0.2377751   0.01150649  0.044444444           30           20           30 
+   16000   0.23664132  0.011056566  0.044444444           30           20           30 
+   17000   0.23167691  0.010773596  0.044444444           30           20           30 
+   18000   0.24098384  0.010697005  0.044444444           30           20           30 
+   19000   0.23739067   0.01100698  0.044444444           30           20           30 
+   20000   0.23743705  0.011113394  0.044444444           30           20           30 
+   20010   0.23349251  0.010820504  0.044444444           30           20           30 
+Loop time of 1.27726 on 1 procs for 20000 steps with 800 atoms
 
-Performance: 8626805.687 tau/day, 9984.729 timesteps/s
-94.9% CPU use with 1 MPI tasks x no OpenMP threads
+Performance: 13528939.539 tau/day, 15658.495 timesteps/s
+96.1% CPU use with 1 MPI tasks x no OpenMP threads
 
 MPI task timing breakdown:
 Section |  min time  |  avg time  |  max time  |%varavg| %total
 ---------------------------------------------------------------
-Pair    | 0          | 0          | 0          |   0.0 |  0.00
-Bond    | 0.0021884  | 0.0021884  | 0.0021884  |   0.0 |  0.11
-Neigh   | 0          | 0          | 0          |   0.0 |  0.00
-Comm    | 0.013927   | 0.013927   | 0.013927   |   0.0 |  0.70
-Output  | 0.23251    | 0.23251    | 0.23251    |   0.0 | 11.61
-Modify  | 1.0109     | 1.0109     | 1.0109     |   0.0 | 50.47
-Other   |            | 0.7435     |            |       | 37.12
+Pair    | 0.039285   | 0.039285   | 0.039285   |   0.0 |  3.08
+Neigh   | 0.32986    | 0.32986    | 0.32986    |   0.0 | 25.83
+Comm    | 0.015386   | 0.015386   | 0.015386   |   0.0 |  1.20
+Output  | 0.023195   | 0.023195   | 0.023195   |   0.0 |  1.82
+Modify  | 0.82224    | 0.82224    | 0.82224    |   0.0 | 64.37
+Other   |            | 0.04729    |            |       |  3.70
 
-Nlocal:        10160.0 ave       10160 max       10160 min
+Nlocal:        800.000 ave         800 max         800 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-Nghost:        0.00000 ave           0 max           0 min
+Nghost:        8.00000 ave           8 max           8 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
-Neighs:        0.00000 ave           0 max           0 min
+Neighs:        30.0000 ave          30 max          30 min
 Histogram: 1 0 0 0 0 0 0 0 0 0
 
-Total # of neighbors = 0
-Ave neighs/atom = 0.0000000
-Ave special neighs/atom = 0.0000000
-Neighbor list builds = 0
+Total # of neighbors = 30
+Ave neighs/atom = 0.0375
+Neighbor list builds = 1184
 Dangerous builds = 0
+unfix 1
+unfix 2
+#unfix kick
+unfix 3
 
 
-Total wall time: 0:00:02
+
+Total wall time: 0:00:01
